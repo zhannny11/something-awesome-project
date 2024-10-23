@@ -28,12 +28,6 @@ def create_table(db_name):
     cursor.close()
     return connection
 
-"""Create a connection to the database"""
-def connect_db(): 
-    # Enter password under ******** field. 
-    db = psycopg2.connect("dbname=password_database password=********") 
-    return db
-
 """Generates passwords of a provided length"""
 def password_gen(password_length):
     characters = string.ascii_letters + string.digits
