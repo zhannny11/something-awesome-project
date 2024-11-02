@@ -6,3 +6,6 @@ set up docker
 ---
 to build the image: docker build -t password_manager .     
 to run the program: docker run -p 5001:5000 password_manager
+--- 
+to run the main file: "./main.py" with selected inputs as defined by the argparser
+- 
