@@ -8,7 +8,6 @@ import getpass
 import argparse
 import master_password
 
-
 """Function to hash the password using bcrypt"""
 def hash_password(password: str) -> bytes:
     # Generate a salt and hash the password
@@ -41,7 +40,7 @@ def create_table(db_name):
     cursor.execute("""
         create table if not exists master_password (
             id integer primary key,
-            password_hash text not null,
+            password_hash text not null
         );
     """)
 
@@ -53,7 +52,7 @@ def create_table(db_name):
 
 def add_entry(cursor, url, username, password):
     hashed_password = hash_password(password)
-    cursor.execute("INSERT INTO passwords (url, username, password) VALUES (?, ?, ?)", (url, username, hashed_password))
+    cursor.execute("insert into passwords (url, username, password) VALUES (?, ?, ?)", (url, username, hashed_password))
     print(f"Record Added:\n url: {url}, Username: {username}, Password: {password} (Plaintext)\n Encrypted: {hashed_password}")
 
 def query_entry(cursor, url):
@@ -108,7 +107,7 @@ def main():
         # If there's no stored password, save the hash
         if not stored_hash:
             hashed_password = hash_password(master_password_input)
-            cursor.execute("INSERT INTO master_password (password_hash) VALUES (?, ?)", (hashed_password))
+            cursor.execute("insert into master_password (password_hash) VALUES (?)", (hashed_password,))
             db.commit()
             print("Master password saved successfully.")
         elif not verify_password(stored_hash[0], master_password_input):

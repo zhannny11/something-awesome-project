@@ -1,2 +1,4 @@
 pyotp==2.6.0
 bcrypt==3.2.0
+pycryptodome==3.15.0
+pbkdf2==1.3 
