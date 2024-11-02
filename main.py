@@ -53,7 +53,7 @@ def create_master_password_table(cursor):
 
 def add_entry(cursor, url, username, password):
     hashed_password = hash_password(password)
-    cursor.execute("INSERT INTO passwords (url, username, password) VALUES (?, ?, ?)", (url, username, password))
+    cursor.execute("INSERT INTO passwords (url, username, password) VALUES (?, ?, ?)", (url, username, hashed_password))
     print(f"Record Added:\n url: {url}, Username: {username}, Password: {password} (Plaintext)\n Encrypted: {hashed_password}")
 
 def query_entry(cursor, url):
@@ -118,7 +118,7 @@ def main():
 
         if args.add:
             url, username = args.add
-            password = password_gen(12)
+            password = password_gen(12)x
             add_entry(cursor, url, username, password)
             db.commit()
         elif args.query:
@@ -126,10 +126,10 @@ def main():
             query_entry(cursor, url)
         elif args.list:
             cursor.execute("select * from passwords")
+            records = cursor.fetchall()
             if records:
-                print("Listing all entries:")
-                for record in records:
-                    print(f"URL: {record[0]}, Username: {record[1]}, Password: (hidden)")
+                for i, entry in enumerate(records, start=1):
+                    print(f"Entry #{i}: URL: {entry[1]}, Username: {entry[2]}, Password: (hidden)")
             else:
                 print("No entries found in the password manager.")
         elif args.delete:
