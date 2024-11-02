@@ -6,6 +6,7 @@ import helpers
 import bcrypt
 import getpass
 import argparse
+import master_password
 
 
 """Function to hash the password using bcrypt"""
@@ -37,19 +38,18 @@ def create_table(db_name):
             password text not null
         );
     """)
+    cursor.execute("""
+        create table if not exists master_password (
+            id integer primary key,
+            password_hash text not null,
+        );
+    """)
 
     # Commit the changes and close the connection
     connection.commit()
     cursor.close()
     return connection
 
-def create_master_password_table(cursor):
-    cursor.execute("""
-        create table if not exists master_password (
-            id integer primary key,
-            password_hash text not null
-        );
-    """)
 
 def add_entry(cursor, url, username, password):
     hashed_password = hash_password(password)
@@ -87,6 +87,7 @@ def initialise_parser():
     my_parser.add_argument("-uurl", "--update_url", type=str, nargs=2, help="Update a url", metavar=("[NEW_url]", "[OLD_url]"))
     my_parser.add_argument("-uname", "--update_username", type=str, nargs=2, help="Update a username in account", metavar=("[url]", "[NEW_USERNAME]")) 
     my_parser.add_argument("-upasswd", "--update_password", type=str, nargs=2, help="Update a password in account", metavar=("[url]", "[NEW_PASSWORD]"))
+
     return my_parser
 
 def main():
@@ -94,22 +95,23 @@ def main():
         db_name = "password.db"
         db = create_table(db_name)
         cursor = db.cursor()
-        create_master_password_table(cursor)
 
         # Prompt for the master password
-        master_password = getpass.getpass("Master password: ")
+        master_password_input = getpass.getpass("Master password: ")
+        # wish to set up 2fa with google authenticator but for the time 
+        second_FA_location = "Dee Boo Dah".encode()
 
         # Hash the master password
-        master_password_hash = hash_password(master_password)
+        master_password_hash = hash_password(master_password_input)
         stored_hash = cursor.execute("SELECT password_hash FROM master_password").fetchone()
         
         # If there's no stored password, save the hash
         if not stored_hash:
-            hashed_password = hash_password(master_password)
-            cursor.execute("INSERT INTO master_password (password_hash) VALUES (?)", (hashed_password,))
+            hashed_password = hash_password(master_password_input)
+            cursor.execute("INSERT INTO master_password (password_hash) VALUES (?, ?)", (hashed_password))
             db.commit()
-            print("Master password entered successfully.")
-        elif not verify_password(stored_hash[0], master_password):
+            print("Master password saved successfully.")
+        elif not verify_password(stored_hash[0], master_password_input):
             print("Failed to authenticate.")
             sys.exit()
 
@@ -129,7 +131,7 @@ def main():
             records = cursor.fetchall()
             if records:
                 for i, entry in enumerate(records, start=1):
-                    print(f"Entry #{i}: URL: {entry[1]}, Username: {entry[2]}, Password: (hidden)")
+                    print(f"Entry #{i}: URL: {entry[1]}, Username: {entry[2]}, Password: (hidden)", end="")
             else:
                 print("No entries found in the password manager.")
         elif args.delete:
