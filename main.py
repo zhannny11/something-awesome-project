@@ -118,7 +118,7 @@ def main():
 
         if args.add:
             url, username = args.add
-            password = password_gen(12)x
+            password = password_gen(12)
             add_entry(cursor, url, username, password)
             db.commit()
         elif args.query:
