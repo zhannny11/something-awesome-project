@@ -58,13 +58,15 @@ def create_table(db_name):
 
         # Create the table
         cursor.execute("""
-           CREATE TABLE IF NOT EXISTS passwords (
-            id INTEGER PRIMARY KEY,
-            url TEXT NOT NULL,
-            username TEXT NOT NULL,
-            password TEXT NOT NULL
+            CREATE TABLE IF NOT EXISTS passwords (
+                id INTEGER PRIMARY KEY,
+                url TEXT NOT NULL,
+                username TEXT NOT NULL,
+                password TEXT NOT NULL
             );
         """)
+        connection.commit()
+
         cursor.execute("""
             create table if not exists master_password (
                 id integer primary key,
@@ -74,6 +76,14 @@ def create_table(db_name):
 
         # Commit the changes
         connection.commit()
+        cursor.execute("""
+            select * from passwords;
+        """)
+        table = cursor.fetchall()
+        if table:
+            print("Tables created successfully.")
+        else:
+            print("No tables")
         return connection, cursor  # Return both connection and cursor
     except sqlite3.Error as e:
         print(f"Error creating database or tables: {e}")
@@ -81,7 +91,7 @@ def create_table(db_name):
 
 
 def add_entry(cursor, url, username, hashed_password):
-    cursor.execute("insert into passwords (url, username, password) VALUES (?, ?, ?)", (url, username, hashed_password))
+    cursor.execute("insert into passwords (url, username, password) VALUES (?, ?, ?);", (url, username, hashed_password))
     print(f"Record Added:\n url: {url}, Username: {username}, Encrypted: {hashed_password}")
 
 def query_entry(cursor, url):
@@ -126,7 +136,9 @@ def initialise_parser():
     return my_parser
 
 def main():
-    db_name = "password.db"
+    print("Starting main function...")
+
+    db_name = "/app/data/password.db"
     connection, cursor = create_table(db_name)  # Get both connection and cursor
 
     if connection is None or cursor is None:
@@ -165,7 +177,7 @@ def main():
             url = args.query[0]
             query_entry(cursor, url)
         elif args.list:
-            cursor.execute("SELECT * FROM passwords")
+            cursor.execute("SELECT * FROM passwords;")
             records = cursor.fetchall()
             if records:
                 for i, entry in enumerate(records, start=1):
@@ -183,6 +195,7 @@ def main():
         elif args.delete:
             url = args.delete[0]
             print(f"Trying to delete URL: '{url}'")  # Debugging output
+            # TODO: need to fix 
             cursor.execute("select * from passwords where TRIM(LOWER(url)) = TRIM(LOWER(?))", (url,))
             record = cursor.fetchone()
             if record:
@@ -221,7 +234,8 @@ def main():
             connection.commit()
             print(f"Updated password for URL: {url}.")
         connection.commit()
-
+    except sqlite3.Error as e:
+        print(f"Database error occurred: {e}")
     except Exception as err:
         print(err)
     finally:
