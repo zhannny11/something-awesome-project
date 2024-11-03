@@ -11,7 +11,8 @@ def gen_salt(length=16):
 """Hash the master password using PBKDF2."""
 def hash_password(master_password, salt, iterations=100000):
     dk = hashlib.pbkdf2_hmac('sha256', master_password.encode(), salt, iterations)
-    return base64.b64encode(dk).decode()
+    return base64.b64encode(dk).decode()  # Store as base64 for consistency
+
 
 """Verify the provided password against the stored hash."""
 def verify_password(stored_hash, provided_password, salt):

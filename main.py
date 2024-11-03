@@ -6,6 +6,7 @@ import helpers
 import bcrypt
 import getpass
 import argparse
+import sys
 import master_password
 import base64
 from pbkdf2 import PBKDF2
@@ -40,12 +41,6 @@ def decrypt_password(password_to_decrypt, master_password_hash, salt):
 
     return plaintext
 
-
-"""Function to verify the password"""
-def verify_password(stored_hash: bytes, provided_password: str) -> bool:
-    # Compare the provided password with the stored hash
-    return bcrypt.checkpw(provided_password.encode(), stored_hash)
-
 """Initialise database"""
 def create_table(db_name):
     try:
@@ -58,11 +53,11 @@ def create_table(db_name):
 
         # Create the table
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS passwords (
-                id INTEGER PRIMARY KEY,
-                url TEXT NOT NULL,
-                username TEXT NOT NULL,
-                password TEXT NOT NULL
+            create table if not exists passwords (
+                id integer primary key,
+                url text not null,
+                username text not null,
+                password text not null
             );
         """)
         connection.commit()
@@ -70,20 +65,19 @@ def create_table(db_name):
         cursor.execute("""
             create table if not exists master_password (
                 id integer primary key,
-                password_hash text not null
+                password_hash text not null,
+                salt blob
             );
         """)
 
-        # Commit the changes
         connection.commit()
-        cursor.execute("""
-            select * from passwords;
-        """)
-        table = cursor.fetchall()
-        if table:
-            print("Tables created successfully.")
-        else:
-            print("No tables")
+        # Check if tables exist in the database
+        # cursor.execute("select name from sqlite_master where type='table';")
+        # tables = cursor.fetchall()
+        # if tables:
+        #     print("Tables exist:", [table[0] for table in tables])
+        # else:
+        #     print("No tables")
         return connection, cursor  # Return both connection and cursor
     except sqlite3.Error as e:
         print(f"Error creating database or tables: {e}")
@@ -136,8 +130,6 @@ def initialise_parser():
     return my_parser
 
 def main():
-    print("Starting main function...")
-
     db_name = "/app/data/password.db"
     connection, cursor = create_table(db_name)  # Get both connection and cursor
 
@@ -160,7 +152,7 @@ def main():
             cursor.execute("insert into master_password (password_hash) VALUES (?)", (hashed_password,))
             connection.commit()
             print("Master password saved successfully.")
-        elif not verify_password(stored_hash[0], master_password_input):
+        elif not master_password.verify_password(stored_hash[0], master_password_input, master_password.gen_salt()):
             print("Failed to authenticate.")
             sys.exit()
 
