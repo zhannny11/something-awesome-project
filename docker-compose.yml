@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    volumes:
+      - .:/app  # Mount your code to /app in the container
+      - ~/sqlite_data:/app/data  # Mount your SQLite data
+    command: 
+      - watchmedo
+      - auto-restart
+      - --patterns=*.py
+      - --ignore-patterns=*.db
+      - --recursive
+      - -- 
+      - python
+      - main.py
