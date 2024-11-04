@@ -30,7 +30,6 @@ def retrieve_master_password(db_name):
         # there's only one entry
         cursor.execute("select password_hash, salt from master_password where id = 1")
         result = cursor.fetchone()
-        print("result: ", result)
 
         if result:
             stored_hash, salt = result
