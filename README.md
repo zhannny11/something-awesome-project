@@ -1,6 +1,11 @@
 # something-awesome-project
 COMP6441 password manager
 ---
+Overview
+**A password manager that securely stores credentials to websites taking, managing URLs, usernames and passwords. To access the database, the project calls for a master password to authenticate the user. 
+**---
+Infrastructure
+
 set up docker 
 - make sure to have docker downloaded onto your desktop: https://www.docker.com/
 ---
