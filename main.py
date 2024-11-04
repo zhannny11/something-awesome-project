@@ -143,23 +143,26 @@ def main():
         # Prompt for the master password
         master_password_input = getpass.getpass("Master password: ")
         # wish to set up 2fa with google authenticator but for the time beign set a fixed plaintext password
-        second_FA_location = "Dee Boo Dah".encode()
+        second_FA_location = "i like trains".encode()
 
         # Hash the master password
-        master_password_hash = master_password.hash_master_password(master_password_input)
-        stored_hash = cursor.execute("select password_hash FROM master_password").fetchone()
+        master_password_hash = master_password.hash_master_password(master_password_input + second_FA_location)
+        # TODO: need to check if a password exists, if not, then store, otherwise verify that the password is correct
+
+       # Check if a master password exists in the database
+        stored_hash = cursor.execute("select password_hash FROM master  _password").fetchone()
         
-        # If there's no stored password, save the hash
-        if not stored_hash:
-            hashed_password = master_password.hash_master_password(master_password_input)
-            _, salt = master_password.retrieve_master_password(db_name)
-            print("salt", salt)
-            cursor.execute("insert into master_password (password_hash, salt) values (?, ?)", (hashed_password, salt))
+        if stored_hash is None:
+            # No stored password, save the hash and salt
+            salt = master_password.gen_salt()
+            cursor.execute("insert into master_password (password_hash, salt) values (?, ?)", (master_password_hash, salt))
             connection.commit()
             print("Master password saved successfully.")
-        elif not master_password.verify_password(master_password_input):
-            print("Failed to authenticate.")
-            sys.exit()
+        else:
+            # Verify the entered password against the stored hash
+            if not master_password.verify_password(master_password_input + second_FA_location, stored_hash[0]):
+                print("Failed to authenticate.")
+                sys.exit()
 
         args = initialise_parser().parse_args()
 

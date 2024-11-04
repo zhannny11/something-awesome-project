@@ -14,17 +14,11 @@ def hash_master_password(master_password):
 
 """Verify the provided password against the stored hash."""
 def verify_password(provided_password):
-    with sqlite3.connect("/app/data/password.db") as conn:
-        cursor = conn.cursor()
-        # there's only one entry
-        cursor.execute("select password_hash, salt from master_password WHERE id = 1")
-        result = cursor.fetchone()
-        if result:
-            stored_hash, salt = result
-            # Hash the input password with the retrieved salt and compare
-            return bcrypt.checkpw(input_password.encode(), stored_hash)
-        else:
-            return False
+    if stored_password_hash is None or not isinstance(stored_password_hash, str):
+        return False
+
+    # Verify the password using bcrypt
+    return bcrypt.checkpw(input_password.encode('utf-8'), stored_password_hash.encode('utf-8'))
 
 """Retrieve the master password from the database."""
 def retrieve_master_password(db_name):
