@@ -18,8 +18,8 @@ def encrypt_password(password_to_encrypt, master_password_hash, salt):
     data_convert = str.encode(password_to_encrypt)
     cipher = AES.new(key, AES.MODE_EAX)
     ciphertext, tag = cipher.encrypt_and_digest(data_convert)
-    # Concatenate the nonce with the ciphertext
-    add_nonce = ciphertext + cipher.nonce
+    # Concatenate the nonce and tag with the ciphertext
+    add_nonce_tag = cipher.nonce + tag + ciphertext
     encoded_ciphertext = base64.b64encode(add_nonce).decode()
     return encoded_ciphertext
 
@@ -30,12 +30,15 @@ def decrypt_password(password_to_decrypt, master_password_hash, salt):
         password_to_decrypt += '=' * (4 - len(password_to_decrypt) % 4)
     convert = base64.b64decode(password_to_decrypt)
     key = PBKDF2(str(master_password_hash), salt).read(32)
-    nonce = convert[-16:]
+    # Extract the nonce, tag, and ciphertext from the decoded data
+    nonce = convert[:16]
+    tag = convert[16:32]
+    ciphertext = convert[32:]
     cipher = AES.new(key, AES.MODE_EAX, nonce=nonce)
 
     try:
-        plaintext = cipher.decrypt(convert[:-16]).decode()
-    except Exception as e:
+        plaintext = cipher.decrypt_and_verify(ciphertext, tag).decode()
+    except ValueError as e:
         print(f"Decryption failed: {e}")
         return None
 
@@ -72,12 +75,12 @@ def create_table(db_name):
 
         connection.commit()
         # Check if tables exist in the database
-        # cursor.execute("select name from sqlite_master where type='table';")
-        # tables = cursor.fetchall()
-        # if tables:
-        #     print("Tables exist:", [table[0] for table in tables])
-        # else:
-        #     print("No tables")
+        cursor.execute("select name from sqlite_master where type='table';")
+        tables = cursor.fetchall()
+        if tables:
+            print("Tables exist:", [table[0] for table in tables])
+        else:
+            print("No tables")
         return connection, cursor  # Return both connection and cursor
     except sqlite3.Error as e:
         print(f"Error creating database or tables: {e}")
@@ -85,7 +88,7 @@ def create_table(db_name):
 
 
 def add_entry(cursor, url, username, hashed_password):
-    cursor.execute("insert into passwords (url, username, password) VALUES (?, ?, ?);", (url, username, hashed_password))
+    cursor.execute("insert into passwords (url, username, password) VALUES (?, ?, ?)", (url, username, hashed_password))
     print(f"Record Added:\n url: {url}, Username: {username}, Encrypted: {hashed_password}")
 
 def query_entry(cursor, url):
@@ -139,20 +142,22 @@ def main():
     try:        
         # Prompt for the master password
         master_password_input = getpass.getpass("Master password: ")
-        # wish to set up 2fa with google authenticator but for the time 
+        # wish to set up 2fa with google authenticator but for the time beign set a fixed plaintext password
         second_FA_location = "Dee Boo Dah".encode()
 
         # Hash the master password
-        master_password_hash = master_password.hash_password(master_password_input, master_password.gen_salt())
-        stored_hash = cursor.execute("SELECT password_hash FROM master_password").fetchone()
+        master_password_hash = master_password.hash_master_password(master_password_input)
+        stored_hash = cursor.execute("select password_hash FROM master_password").fetchone()
         
         # If there's no stored password, save the hash
         if not stored_hash:
-            hashed_password = master_password.hash_password(master_password_input, master_password.gen_salt())
-            cursor.execute("insert into master_password (password_hash) VALUES (?)", (hashed_password,))
+            hashed_password = master_password.hash_master_password(master_password_input)
+            _, salt = master_password.retrieve_master_password(db_name)
+            print("salt", salt)
+            cursor.execute("insert into master_password (password_hash, salt) values (?, ?)", (hashed_password, salt))
             connection.commit()
             print("Master password saved successfully.")
-        elif not master_password.verify_password(stored_hash[0], master_password_input, master_password.gen_salt()):
+        elif not master_password.verify_password(master_password_input):
             print("Failed to authenticate.")
             sys.exit()
 
@@ -207,6 +212,10 @@ def main():
 
         elif args.add_password:
             url, username, password = args.add_password
+            # TODO: need the master password hash and salt
+            stored_hash, salt = master_password.retrieve_master_password(db_name)
+            print("salt", salt)
+            encrypted_password = encrypt_password(password, stored_hash, salt)
             add_entry(cursor, url, username, password)
             connection.commit()
             print(f"Password added for entry")
