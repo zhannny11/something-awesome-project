@@ -20,12 +20,11 @@ def encrypt_password(password_to_encrypt, master_password_hash, salt):
     ciphertext, tag = cipher.encrypt_and_digest(data_convert)
     # Concatenate the nonce and tag with the ciphertext
     add_nonce_tag = cipher.nonce + tag + ciphertext
-    encoded_ciphertext = base64.b64encode(add_nonce).decode()
+    encoded_ciphertext = base64.b64encode(add_nonce_tag).decode()
     return encoded_ciphertext
 
 """Decrypt a password using AES."""
 def decrypt_password(password_to_decrypt, master_password_hash, salt):
-    print("password_to_decrypt", password_to_decrypt)
     if len(password_to_decrypt) % 4:
         password_to_decrypt += '=' * (4 - len(password_to_decrypt) % 4)
     convert = base64.b64decode(password_to_decrypt)
@@ -69,18 +68,11 @@ def create_table(db_name):
             create table if not exists master_password (
                 id integer primary key,
                 password_hash text not null,
-                salt blob
+                salt text not null
             );
         """)
 
         connection.commit()
-        # Check if tables exist in the database
-        cursor.execute("select name from sqlite_master where type='table';")
-        tables = cursor.fetchall()
-        if tables:
-            print("Tables exist:", [table[0] for table in tables])
-        else:
-            print("No tables")
         return connection, cursor  # Return both connection and cursor
     except sqlite3.Error as e:
         print(f"Error creating database or tables: {e}")
@@ -143,26 +135,24 @@ def main():
         # Prompt for the master password
         master_password_input = getpass.getpass("Master password: ")
         # wish to set up 2fa with google authenticator but for the time beign set a fixed plaintext password
-        second_FA_location = "i like trains".encode()
+        second_FA_location = "i like trains"
 
         # Hash the master password
         master_password_hash = master_password.hash_master_password(master_password_input + second_FA_location)
-        # TODO: need to check if a password exists, if not, then store, otherwise verify that the password is correct
-
        # Check if a master password exists in the database
-        stored_hash = cursor.execute("select password_hash FROM master  _password").fetchone()
-        
+        stored_hash = cursor.execute("select password_hash from master_password").fetchone()
         if stored_hash is None:
-            # No stored password, save the hash and salt
             salt = master_password.gen_salt()
             cursor.execute("insert into master_password (password_hash, salt) values (?, ?)", (master_password_hash, salt))
             connection.commit()
             print("Master password saved successfully.")
+
         else:
-            # Verify the entered password against the stored hash
             if not master_password.verify_password(master_password_input + second_FA_location, stored_hash[0]):
-                print("Failed to authenticate.")
+                print("Failed to authenticate. ")
                 sys.exit()
+
+            print("Master password authenticated successfully.")
 
         args = initialise_parser().parse_args()
 
@@ -195,7 +185,6 @@ def main():
         elif args.delete:
             url = args.delete[0]
             print(f"Trying to delete URL: '{url}'")  # Debugging output
-            # TODO: need to fix 
             cursor.execute("select * from passwords where TRIM(LOWER(url)) = TRIM(LOWER(?))", (url,))
             record = cursor.fetchone()
             if record:
@@ -215,7 +204,6 @@ def main():
 
         elif args.add_password:
             url, username, password = args.add_password
-            # TODO: need the master password hash and salt
             stored_hash, salt = master_password.retrieve_master_password(db_name)
             print("salt", salt)
             encrypted_password = encrypt_password(password, stored_hash, salt)
@@ -234,7 +222,9 @@ def main():
             print(f"Updated username for URL: {url}.")
         elif args.update_password:
             url, new_password = args.update_password
-            cursor.execute("update passwords set password = ? where url = ?", (new_password, url))
+            stored_hash, salt = master_password.retrieve_master_password(db_name)
+            encrypted_password = encrypt_password(new_password, stored_hash, salt)
+            cursor.execute("update passwords set password = ? where url = ?", (encrypted_password, url))
             connection.commit()
             print(f"Updated password for URL: {url}.")
         connection.commit()
