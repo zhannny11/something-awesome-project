@@ -82,13 +82,15 @@ def add_entry(cursor, url, username, hashed_password):
     cursor.execute("insert into passwords (url, username, password) VALUES (?, ?, ?)", (url, username, hashed_password))
     print(f"Record Added:\n url: {url}, Username: {username}, Encrypted: {hashed_password}")
 
-def query_entry(cursor, url):
+def query_entry(cursor, url, db_name):
     cursor.execute("select * from passwords where url = ?", (url,))
     record = cursor.fetchone()
 
     if record:
-        password_field = record[3]  # Assuming the password is in the fourth column
-        decrypted_password = decrypt_password(password_field, master_password_hash, master_password.gen_salt())
+        encrypted_password = record[3]  # Assuming the password is in the fourth column
+        print("encrypted_password", encrypted_password)
+        stored_hash, salt = master_password.retrieve_master_password(db_name)
+        decrypted_password = decrypt_password(encrypted_password, stored_hash, salt)
         if decrypted_password is not None:  # Check if decryption was successful
             print(f"Record: URL: {record[1]}, Username: {record[2]}, Password: {decrypted_password}")
             print(f"Record With Encrypted Password: URL: {record[1]}, Username: {record[2]}, Password: {record[3]}")
@@ -158,23 +160,32 @@ def main():
 
         if args.add:
             url, username = args.add
+            # Check if the URL already exists
+            cursor.execute("select * from passwords where trim(lower(url)) = trim(lower(?))", (url,))
+            existing_entry = cursor.fetchone()
+
+            if existing_entry:
+                print(f"An entry for URL '{url}' already exists. Exiting without adding a new entry.")
+                sys.exit()  # Exit early if URL already exists
+
             password = password_gen(12)
-            hashed_password = encrypt_password(password, master_password_hash, master_password.gen_salt())
+            stored_hash, salt = master_password.retrieve_master_password(db_name)
+            hashed_password = encrypt_password(password, stored_hash, salt)
             add_entry(cursor, url, username, hashed_password)
             connection.commit()
         elif args.query:
             url = args.query[0]
-            query_entry(cursor, url)
+            query_entry(cursor, url, db_name)
         elif args.list:
-            cursor.execute("SELECT * FROM passwords;")
+            cursor.execute("select * from passwords")
             records = cursor.fetchall()
             if records:
                 for i, entry in enumerate(records, start=1):
                     url = entry[1]
                     username = entry[2]
                     encrypted_password = entry[3]
-                    decrypted_password = decrypt_password(encrypted_password, master_password_hash, master_password.gen_salt())
-                    print("decrypted password:", decrypted_password)
+                    stored_hash, salt = master_password.retrieve_master_password(db_name)
+                    decrypted_password = decrypt_password(encrypted_password, stored_hash, salt)
                     if decrypted_password is not None:  # Ensure decryption was successful
                         print(f"Entry #{i}: URL: {url}, Username: {username}, Password: {decrypted_password}")
                     else:
@@ -183,17 +194,15 @@ def main():
                 print("No entries found in the password manager.")
         elif args.delete:
             url = args.delete[0]
-            print(f"Trying to delete URL: '{url}'")  # Debugging output
-            cursor.execute("select * from passwords where TRIM(LOWER(url)) = TRIM(LOWER(?))", (url,))
+            cursor.execute("select * from passwords where trim(lower(url)) = trim(lower(?))", (url,))
             record = cursor.fetchone()
             if record:
                 # Proceed with deletion
-                cursor.execute("delete from passwords where TRIM(LOWER(url)) = TRIM(LOWER(?))", (url,))
+                cursor.execute("delete from passwords where trim(lower(url)) = trim(lower(?))", (url,))
                 connection.commit()
                 print(f"Deleted entry for url: {url}")
-
                 # Check if the deletion was successful
-                cursor.execute("SELECT * FROM passwords WHERE TRIM(LOWER(url)) = TRIM(LOWER(?))", (url,))
+                cursor.execute("SELECT * FROM passwords WHERE trim(lower(url)) = trim(lower(?))", (url,))
                 if cursor.fetchone():
                     print(f"Deletion failed, entry for URL '{url}' still exists.")
                 else:
@@ -204,13 +213,12 @@ def main():
         elif args.add_password:
             url, username, password = args.add_password
             stored_hash, salt = master_password.retrieve_master_password(db_name)
-            print("salt", salt)
             encrypted_password = encrypt_password(password, stored_hash, salt)
-            add_entry(cursor, url, username, password)
+            add_entry(cursor, url, username, encrypted_password)
             connection.commit()
             print(f"Password added for entry")
         elif args.update_url:
-            new_url, old_url = args.update_url
+            old_url, new_url = args.update_url
             cursor.execute("update passwords set url = ? where url = ?", (new_url, old_url))
             connection.commit()
             print(f"Updated url from {old_url} to {new_url}.")
