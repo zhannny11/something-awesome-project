@@ -2,7 +2,6 @@
 import secrets
 import string
 import sqlite3
-import helpers
 import bcrypt
 import getpass
 import argparse
