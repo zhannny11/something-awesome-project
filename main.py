@@ -218,7 +218,7 @@ def main():
             connection.commit()
             print(f"Password added for entry")
         elif args.update_url:
-            old_url, new_url = args.update_url
+            new_url, old_url = args.update_url
             cursor.execute("update passwords set url = ? where url = ?", (new_url, old_url))
             connection.commit()
             print(f"Updated url from {old_url} to {new_url}.")
